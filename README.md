@@ -49,4 +49,4 @@ Built phase by phase (see `docs/BRIEF.md`):
 - [x] Phase 3 — Neon persistence + staff auth (Auth.js)
 - [x] Phase 4 — Share links
 - [x] Phase 5 — Comments
-- [ ] Phase 6 — Export & extras
+- [x] Phase 6 — Export & extras

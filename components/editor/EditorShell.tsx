@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useStore } from "zustand";
+import { ReactFlowProvider } from "@xyflow/react";
 import {
   ArrowLeft,
   Check,
@@ -25,6 +26,7 @@ import {
   CommentsPanel,
   type CommentsTransport,
 } from "@/components/comments/CommentsPanel";
+import { ExportMenu } from "./ExportMenu";
 import { ShareDialog } from "./ShareDialog";
 
 const SitemapEditor = dynamic(
@@ -139,6 +141,7 @@ function TopBar({
         <MessageSquare className="h-[15px] w-[15px]" />
         <span className="hidden sm:inline">Comments</span>
       </button>
+      <ExportMenu />
       <ShareDialog sitemapId={sitemapId} />
       <span className="mx-1 h-[22px] w-px bg-[#2A2D37]" />
 
@@ -208,23 +211,25 @@ export function EditorShell({
   );
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden">
-      <TopBar
-        name={name}
-        status={status}
-        sitemapId={sitemapId}
-        onToggleComments={() => setCommentsOpen((o) => !o)}
-        commentsOpen={commentsOpen}
-      />
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <SitemapEditor />
-        <CommentsPanel
-          open={commentsOpen}
-          onClose={() => setCommentsOpen(false)}
-          doc={doc}
-          transport={transport}
+    <ReactFlowProvider>
+      <div className="flex h-[100dvh] flex-col overflow-hidden">
+        <TopBar
+          name={name}
+          status={status}
+          sitemapId={sitemapId}
+          onToggleComments={() => setCommentsOpen((o) => !o)}
+          commentsOpen={commentsOpen}
         />
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <SitemapEditor />
+          <CommentsPanel
+            open={commentsOpen}
+            onClose={() => setCommentsOpen(false)}
+            doc={doc}
+            transport={transport}
+          />
+        </div>
       </div>
-    </div>
+    </ReactFlowProvider>
   );
 }

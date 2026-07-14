@@ -6,7 +6,6 @@ import {
   BackgroundVariant,
   Controls,
   ReactFlow,
-  ReactFlowProvider,
   useNodesState,
   useReactFlow,
   type NodeMouseHandler,
@@ -21,7 +20,7 @@ import { SitemapNodeCard } from "./SitemapNode";
 
 const nodeTypes = { sitemap: SitemapNodeCard };
 
-function EditorInner() {
+export function SitemapEditor() {
   const doc = useSitemapStore((s) => s.doc);
   const selectedId = useSitemapStore((s) => s.selectedId);
   const select = useSitemapStore((s) => s.select);
@@ -197,13 +196,5 @@ function Kbd({ children }: { children: React.ReactNode }) {
     <kbd className="rounded border border-[#DDE1EB] border-b-2 bg-[#EEF0F6] px-1 font-mono text-[10.5px] text-[#1B2130]">
       {children}
     </kbd>
-  );
-}
-
-export function SitemapEditor() {
-  return (
-    <ReactFlowProvider>
-      <EditorInner />
-    </ReactFlowProvider>
   );
 }
