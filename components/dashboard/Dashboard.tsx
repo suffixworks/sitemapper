@@ -30,6 +30,7 @@ export interface SitemapListItem {
   id: string;
   name: string;
   updated_at: string;
+  ownerName: string;
 }
 
 function formatDate(iso: string): string {
@@ -104,8 +105,16 @@ export function Dashboard({
                   <div className="truncate text-[15px] font-semibold text-[#1B2130]">
                     {s.name}
                   </div>
-                  <div className="mt-0.5 text-[12px] text-[#AAB2C0]">
-                    Updated {formatDate(s.updated_at)}
+                  <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-[#AAB2C0]">
+                    <span
+                      className="grid h-[18px] w-[18px] flex-none place-items-center rounded-full bg-[#EBEAFC] text-[9px] font-semibold uppercase text-[#4C46E5]"
+                      title={s.ownerName}
+                    >
+                      {s.ownerName.charAt(0)}
+                    </span>
+                    <span className="truncate">
+                      {s.ownerName} · {formatDate(s.updated_at)}
+                    </span>
                   </div>
                 </Link>
 
