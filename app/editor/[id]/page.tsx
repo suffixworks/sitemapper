@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { sitemaps } from "@/lib/db/schema";
 import { emptyDoc, type SitemapDoc } from "@/lib/tree";
 import { EditorShell } from "@/components/editor/EditorShell";
 
@@ -11,17 +13,15 @@ export default async function EditorPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
 
-  const { data: sitemap, error } = await supabase
-    .from("sitemaps")
-    .select("id, name, data")
-    .eq("id", id)
-    .single();
+  const [row] = await db
+    .select({ id: sitemaps.id, name: sitemaps.name, data: sitemaps.data })
+    .from(sitemaps)
+    .where(eq(sitemaps.id, id));
 
-  if (error || !sitemap) notFound();
+  if (!row) notFound();
 
-  const doc = (sitemap.data as SitemapDoc | null) ?? emptyDoc();
+  const doc = (row.data as SitemapDoc | null) ?? emptyDoc();
 
-  return <EditorShell sitemapId={sitemap.id} name={sitemap.name} initialDoc={doc} />;
+  return <EditorShell sitemapId={row.id} name={row.name} initialDoc={doc} />;
 }

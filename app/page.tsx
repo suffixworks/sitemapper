@@ -1,37 +1,28 @@
-import { createClient } from "@/lib/supabase/server";
-import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { desc } from "drizzle-orm";
+import { auth } from "@/auth";
+import { db } from "@/lib/db";
+import { sitemaps } from "@/lib/db/schema";
 import { Dashboard, type SitemapListItem } from "@/components/dashboard/Dashboard";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  if (!isSupabaseConfigured()) {
-    return (
-      <main className="flex min-h-[100dvh] items-center justify-center bg-[#EDF0F5] p-6">
-        <div className="max-w-md rounded-2xl border border-[#E1E6EF] bg-white px-8 py-9 text-center shadow-sm">
-          <h1 className="text-lg font-bold text-[#1B2130]">Supabase not configured</h1>
-          <p className="mt-2 text-[13.5px] leading-relaxed text-[#7A8496]">
-            Set <code className="font-mono">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
-            <code className="font-mono">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> (plus the
-            server keys) in <code className="font-mono">.dev.vars</code>, then restart the
-            dev server.
-          </p>
-        </div>
-      </main>
-    );
-  }
+  const session = await auth();
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const rows = await db
+    .select({
+      id: sitemaps.id,
+      name: sitemaps.name,
+      updatedAt: sitemaps.updatedAt,
+    })
+    .from(sitemaps)
+    .orderBy(desc(sitemaps.updatedAt));
 
-  const { data } = await supabase
-    .from("sitemaps")
-    .select("id, name, updated_at")
-    .order("updated_at", { ascending: false });
+  const items: SitemapListItem[] = rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    updated_at: r.updatedAt.toISOString(),
+  }));
 
-  return (
-    <Dashboard sitemaps={(data as SitemapListItem[]) ?? []} userEmail={user?.email ?? ""} />
-  );
+  return <Dashboard sitemaps={items} userEmail={session?.user?.email ?? ""} />;
 }

@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useStore } from "zustand";
 import { ArrowLeft, Check, Loader2, Redo2, TriangleAlert, Undo2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { saveSitemap } from "@/app/actions";
 import type { SitemapDoc } from "@/lib/tree";
 import { useSitemapStore } from "@/store/useSitemapStore";
 
@@ -39,16 +39,12 @@ function useAutosave(sitemapId: string, initialDoc: SitemapDoc): SaveStatus {
     setStatus("saving");
     const snapshot = doc;
     const t = setTimeout(async () => {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("sitemaps")
-        .update({ data: snapshot })
-        .eq("id", sitemapId);
-      if (error) {
-        setStatus("error");
-      } else {
+      try {
+        await saveSitemap(sitemapId, snapshot);
         lastSaved.current = snapshot;
         setStatus("saved");
+      } catch {
+        setStatus("error");
       }
     }, 800);
     return () => clearTimeout(t);

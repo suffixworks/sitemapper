@@ -3,7 +3,7 @@
 เครื่องมือออกแบบ sitemap แบบ Octopus.do สำหรับ SUFFIX. Staff สร้าง/แก้โครงสร้างเว็บ,
 ลูกค้ารีวิวด้วยการ comment ผ่านลิงก์แชร์.
 
-อ่าน `CLAUDE.md` (conventions + architecture) และ `0001_schema_and_access.sql` (schema)
+อ่าน `CLAUDE.md` (conventions + architecture) และ `schema.sql` (schema)
 ประกอบบรีฟนี้. ทำ **ทีละเฟส** — จบเฟส ให้ `pnpm lint && pnpm build` ผ่าน แล้ว commit ก่อนไปต่อ.
 
 ---
@@ -17,8 +17,8 @@
 ## Scope v1 (ล็อกแล้ว)
 - โครงสร้าง+canvas ครบ (ตาม prototype): เพิ่มหน้าลูก/พี่น้อง, ลบทั้งกิ่ง, แก้ชื่อ+slug,
   สลับลำดับ, ยุบ/ขยาย, เปลี่ยนสี, auto-layout, pan/zoom/fit, shortcuts, undo/redo
-- หลาย sitemap + dashboard (list/new/duplicate/rename/delete) + autosave (Supabase)
-- Staff auth (Google @suffix.works, 3-layer gate) + team-shared RLS
+- หลาย sitemap + dashboard (list/new/duplicate/rename/delete) + autosave (Neon)
+- Staff auth (Google @suffix.works, domain gate) + team-shared (server-layer)
 - **Share links** (staff สร้าง, revoke ได้): `view` = **ลิงก์ public อ่านอย่างเดียว
   เปิดดูได้ไม่ต้อง login** · `comment` = เปิดให้ลูกค้าคอมเมนต์
 - **Comments**: ปักได้ทั้ง **รายกล่อง (node)** และ **ทั้ง sitemap**, มี **reply + resolve**
@@ -32,13 +32,16 @@ comment แบบ realtime, การแจ้งเตือนอีเมล
 ---
 
 ## Access-control design (สำคัญ — อย่าทำพลาด)
-3 ชั้นสำหรับ staff + เส้นทางแยกสำหรับ guest:
-1. **Signup hook** — `restrict_signup_to_suffix` บล็อกบัญชีที่ไม่ใช่ @suffix.works ตั้งแต่สร้าง
-2. **RLS** — ทุกตารางเช็ค `is_suffix()`; นี่คือด่านบังคับจริง
-3. **Google `hd=suffix.works`** — แค่ hint ตอนเลือกบัญชี (spoof ได้ ไม่นับเป็น security)
-4. **Guest path** — client ไม่มี session; ทุก action (โหลด sitemap, อ่าน/เขียน comment)
-   วิ่งผ่าน **Next.js Route Handler** ที่ตรวจ token (มีจริง/ไม่ revoke/ไม่หมดอายุ/permission)
-   แล้วใช้ **service-role key (server-only)** อ่าน/เขียนแทน guest. ห้าม guest แตะ Supabase ตรงๆ.
+ทุก DB access วิ่งผ่าน **server ของ Next.js เท่านั้น** (browser ไม่ต่อ Neon ตรง) — ไม่มี RLS,
+บังคับสิทธิ์ที่ server layer:
+1. **Auth.js signIn callback** — เช็ค `email.endsWith('@suffix.works')`; ถ้าไม่ใช่ block ตั้งแต่ login
+   → นี่คือด่านกันโดเมนตัวจริง (แทน Supabase hook เดิม)
+2. **Staff** — request ที่มี Auth.js session ที่ถูกต้อง = staff (โดเมนถูกกันตั้งแต่ login แล้ว)
+   → team-shared: เข้าถึง/แก้ทุก sitemap ได้
+3. **Google `hd=suffix.works` + OAuth "Internal"** — hint/ด่านเสริมระดับ Google
+4. **Guest path** — ไม่มี session; ทุก action (โหลด sitemap, อ่าน/เขียน comment) วิ่งผ่าน
+   **Route Handler** ที่ตรวจ share token (มีจริง/ไม่ revoke/ไม่หมดอายุ/permission) แล้ว query
+   Neon ผ่าน Drizzle แทน guest. guest ไม่มีทางแตะ DB ตรง
 
 ---
 
@@ -59,10 +62,9 @@ staff editor ใช้บนมือถือได้ (touch pan/zoom, แต�
 ## Phases + kickoff prompts
 
 ### Phase 0 — Scaffold
-Next.js 15 + TS + Tailwind, init shadcn/ui, ติดตั้ง deps ทั้งหมด + OpenNext adapter
-(`@opennextjs/cloudflare`, `wrangler`), วาง CLAUDE.md, สร้างโครงโฟลเดอร์ตาม CLAUDE.md,
-`wrangler.toml` + `open-next.config.ts` + `.dev.vars.example`.
-**DoD:** `pnpm dev` ขึ้นหน้าเปล่า, `pnpm build` ผ่าน, `opennextjs-cloudflare preview` รันได้.
+Next.js 15 + TS + Tailwind, init shadcn/ui, ติดตั้ง deps ทั้งหมด, วาง CLAUDE.md,
+สร้างโครงโฟลเดอร์ตาม CLAUDE.md, `.env.local.example`, `vercel.json` (ไว้ใส่ cron ภายหลัง).
+**DoD:** `pnpm dev` ขึ้นหน้าเปล่า, `pnpm build` ผ่าน, deploy preview บน Vercel ได้.
 > "Scaffold the project per CLAUDE.md. Install all deps, init shadcn/ui, create the
 > directory structure with stub files. No features yet. Make `pnpm build` pass."
 
@@ -84,39 +86,42 @@ per-node color, sibling reorder (◀▶), undo/redo (zundo), sonner toasts, แ�
 > "Add Phase 2: keyboard shortcuts, collapse/expand with count badge, per-node color,
 > sibling reorder, undo/redo via zundo, toasts. Every structural mutation must be undoable."
 
-### Phase 3 — Supabase persistence + staff auth
-รัน `0001_schema_and_access.sql`; Google OAuth (`hd:'suffix.works'`) + `/auth/callback`;
-middleware กันคนนอกโดเมน (redirect `/access-denied`); โหลด doc เข้าstore; autosave debounce
-800ms; dashboard list/new/duplicate/rename/delete.
-**DoD:** login @suffix.works ได้, สร้าง sitemap, refresh แล้วข้อมูลอยู่, คนนอกโดเมนเข้าไม่ได้.
-> "Add Supabase persistence + staff Google auth restricted to @suffix.works (hook + RLS +
-> hd hint + middleware). One JSONB row per sitemap, autosave debounced 800ms, plus a
-> dashboard to list/create/duplicate/rename/delete sitemaps."
+### Phase 3 — Neon persistence + staff auth (Auth.js)
+ตั้ง Drizzle + schema (mirror `schema.sql`) บน Neon; Auth.js (NextAuth v5) Google sign-in
+พร้อม `signIn` callback กันโดเมน `@suffix.works` (+ `hd` hint); Auth.js Drizzle adapter
+(users/accounts/sessions); middleware กันหน้าที่ต้อง login; โหลด doc เข้า store ผ่าน Server
+Component; autosave debounce 800ms ด้วย Server Action; dashboard list/new/duplicate/rename/delete.
+**DoD:** login @suffix.works ได้, คนนอกโดเมน login ไม่ผ่าน, สร้าง sitemap, refresh แล้วข้อมูลอยู่.
+> "Add Neon+Drizzle persistence and staff auth with Auth.js (NextAuth v5) Google sign-in
+> restricted to @suffix.works in the signIn callback (+ hd hint). Use the Drizzle adapter for
+> Auth.js tables. All DB access is server-side (Server Actions/Route Handlers) — no client DB
+> access, no RLS. One JSONB row per sitemap, autosave debounced 800ms via a Server Action, plus
+> a dashboard to list/create/duplicate/rename/delete."
 
 ### Phase 4 — Share links
 ในeditor: ปุ่ม "Share" → สร้างแถว `sitemap_shares` (permission view/comment) → copy ลิงก์;
 รายการลิงก์ + revoke. หน้า guest `app/s/[token]/page.tsx` + route `GET /api/share/[token]`
-(validate token ด้วย service role) → render sitemap **read-only** (ใช้ SitemapEditor โหมด
+(validate token ฝั่ง server แล้ว query Neon ผ่าน Drizzle) → render sitemap **read-only** (ใช้ SitemapEditor โหมด
 ล็อก: ไม่มีปุ่มแก้). `view` = ลิงก์ public อ่านอย่างเดียว, `comment` = เปิดให้คอมเมนต์ (Phase 5).
 หน้า guest ต้อง **mobile-first** (ลูกค้าเปิดบนมือถือ).
 **DoD:** เปิดลิงก์ view ใน incognito/มือถือเห็น sitemap read-only ได้, revoke แล้วเข้าไม่ได้.
 > "Add share links: staff generate a tokened link (view|comment) with revoke. `view` is a
 > public read-only link (no login). Build the guest route /s/[token] backed by
-> GET /api/share/[token] that validates the token with the service-role key and renders the
-> sitemap read-only, mobile-first. Guests never hit Supabase directly."
+> GET /api/share/[token] that validates the token server-side and queries Neon via Drizzle,
+> rendering the sitemap read-only, mobile-first. The browser never queries the DB directly."
 
 ### Phase 5 — Comments (node + sitemap, reply + resolve)
 `comments` table พร้อมแล้ว. `CommentsPanel` (list, filter open/resolved), `CommentThread`
 (reply), `CommentPin` (badge จำนวนคอมเมนต์บน node, คลิกเปิด thread). Sitemap-level = node_id null.
-- Staff: อ่าน/ตอบ/resolve ผ่าน supabase client + RLS (`author_id`, `is_staff=true`).
+- Staff: อ่าน/ตอบ/resolve ผ่าน Server Actions + Drizzle (`author_id`, `is_staff=true`).
 - Guest: `GET/POST /api/share/[token]/comments` ผ่าน server route (permission ต้อง 'comment'),
   บันทึก `author_name`+`author_email`, `is_staff=false`. ตรวจ body ไม่ว่าง + throttle เบื้องต้น.
 - prefill ชื่อ/อีเมล guest ด้วย localStorage.
 - **Mobile:** CommentsPanel เป็น bottom sheet บนมือถือ, thread/ปุ่ม reply แตะง่าย.
 **DoD:** guest คอมเมนต์บนกล่องและทั้ง sitemap ได้ (รวมบนมือถือ), staff เห็น+ตอบ+resolve ได้,
 resolve เป็น staff-only.
-> "Add comments on nodes and on the whole sitemap, with replies and resolve. Staff use the
-> supabase client + RLS; guests post via POST /api/share/[token]/comments (server route,
+> "Add comments on nodes and on the whole sitemap, with replies and resolve. Staff use
+> Server Actions + Drizzle; guests post via POST /api/share/[token]/comments (server route,
 > permission must be 'comment', capture name+email, is_staff=false, basic throttle). Show
 > comment pins on nodes and a side panel with open/resolved filter. Resolve is staff-only."
 
@@ -132,7 +137,7 @@ Markdown outline (`- Title \`/slug\`` ตาม indent).
 
 ## Kickoff (ข้อความแรกใน Claude Code)
 ```
-Read CLAUDE.md, BRIEF.md, and 0001_schema_and_access.sql. We build "Sitemapper" in the
+Read CLAUDE.md, BRIEF.md, and schema.sql. We build "Sitemapper" in the
 phases defined in BRIEF.md. Start with Phase 0 (scaffold only). Confirm the directory
 structure with me, implement Phase 0, make `pnpm build` pass, then stop for review.
 After each phase: run lint + build and stop.
@@ -143,4 +148,4 @@ After each phase: run lint + build and stop.
 - ถ้ามี prototype HTML เดิม แนบเป็น reference: "match the visual style of this file"
 - อัปเดต CLAUDE.md เมื่อ decision เปลี่ยน (agent อ่านทุกครั้ง)
 - เปิด TS strict; `lib/tree.ts` มี unit test กันโครงสร้างพัง
-- ย้ำเรื่อง security: guest ผ่าน server route เท่านั้น, service-role key อยู่ฝั่ง server
+- ย้ำเรื่อง security: guest ผ่าน server route เท่านั้น, DATABASE_URL/AUTH_SECRET อยู่ฝั่ง server เท่านั้น

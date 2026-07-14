@@ -21,9 +21,9 @@ import {
 import {
   createSitemap,
   deleteSitemap,
+  doSignOut,
   duplicateSitemap,
   renameSitemap,
-  signOut,
 } from "@/app/actions";
 
 export interface SitemapListItem {
@@ -58,7 +58,7 @@ export function Dashboard({
         <div className="flex-1" />
         <span className="hidden text-[13px] text-[#7A8496] sm:inline">{userEmail}</span>
         <button
-          onClick={() => startTransition(() => signOut())}
+          onClick={() => startTransition(() => doSignOut())}
           title="Sign out"
           className="grid h-9 w-9 place-items-center rounded-lg text-[#7A8496] transition-colors hover:bg-[#F2F3F8] hover:text-[#1B2130]"
         >

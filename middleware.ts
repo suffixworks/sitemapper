@@ -1,16 +1,11 @@
-import { type NextRequest } from "next/server";
-import { updateSession } from "@/lib/supabase/middleware";
+import NextAuth from "next-auth";
+import { authConfig } from "./auth.config";
 
-export async function middleware(request: NextRequest) {
-  return await updateSession(request);
-}
+// Edge-safe: uses the adapter-free config so no DB import runs in middleware.
+// The `authorized` callback (auth.config.ts) redirects unauthenticated users to
+// /login. Only the staff app is matched; /login, /api, and guest /s are public.
+export const { auth: middleware } = NextAuth(authConfig);
 
 export const config = {
-  matcher: [
-    // Gate the staff app only. Exclude:
-    //   _next static/image, favicon, files with extensions,
-    //   /login, /access-denied, /auth (OAuth callback),
-    //   /api and /s (guest share endpoints — no staff auth).
-    "/((?!_next/static|_next/image|favicon\\.ico|login|access-denied|auth|api|s/|.*\\.[\\w]+$).*)",
-  ],
+  matcher: ["/", "/editor/:path*"],
 };

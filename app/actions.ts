@@ -2,11 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { eq } from "drizzle-orm";
+import { auth, signOut } from "@/auth";
+import { db } from "@/lib/db";
+import { sitemaps } from "@/lib/db/schema";
 import type { SitemapDoc } from "@/lib/tree";
 
 function homeSeed(): SitemapDoc {
-  const rootId = globalThis.crypto.randomUUID();
+  const rootId = crypto.randomUUID();
   return {
     rootId,
     nodes: {
@@ -23,62 +26,55 @@ function homeSeed(): SitemapDoc {
   };
 }
 
+// Staff are team-shared: any signed-in @suffix.works user may act on any sitemap.
+// (The domain gate already ran at sign-in.) This just ensures a session exists.
+async function requireUserId(): Promise<string> {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  return session.user.id;
+}
+
 export async function createSitemap() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data, error } = await supabase
-    .from("sitemaps")
-    .insert({ owner_id: user.id, name: "Untitled sitemap", data: homeSeed() })
-    .select("id")
-    .single();
-
-  if (error || !data) throw new Error(error?.message ?? "Failed to create sitemap");
-  redirect(`/editor/${data.id}`);
+  const ownerId = await requireUserId();
+  const [row] = await db
+    .insert(sitemaps)
+    .values({ ownerId, name: "Untitled sitemap", data: homeSeed() })
+    .returning({ id: sitemaps.id });
+  redirect(`/editor/${row.id}`);
 }
 
 export async function duplicateSitemap(id: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: src, error: readErr } = await supabase
-    .from("sitemaps")
-    .select("name, data")
-    .eq("id", id)
-    .single();
-  if (readErr || !src) throw new Error(readErr?.message ?? "Sitemap not found");
-
-  const { error } = await supabase
-    .from("sitemaps")
-    .insert({ owner_id: user.id, name: `${src.name} copy`, data: src.data });
-  if (error) throw new Error(error.message);
-
+  const ownerId = await requireUserId();
+  const [src] = await db
+    .select({ name: sitemaps.name, data: sitemaps.data })
+    .from(sitemaps)
+    .where(eq(sitemaps.id, id));
+  if (!src) throw new Error("Sitemap not found");
+  await db.insert(sitemaps).values({ ownerId, name: `${src.name} copy`, data: src.data });
   revalidatePath("/");
 }
 
 export async function renameSitemap(id: string, name: string) {
-  const supabase = await createClient();
-  const trimmed = name.trim() || "Untitled sitemap";
-  const { error } = await supabase.from("sitemaps").update({ name: trimmed }).eq("id", id);
-  if (error) throw new Error(error.message);
+  await requireUserId();
+  await db
+    .update(sitemaps)
+    .set({ name: name.trim() || "Untitled sitemap" })
+    .where(eq(sitemaps.id, id));
   revalidatePath("/");
 }
 
 export async function deleteSitemap(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("sitemaps").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  await requireUserId();
+  await db.delete(sitemaps).where(eq(sitemaps.id, id));
   revalidatePath("/");
 }
 
-export async function signOut() {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
-  redirect("/login");
+// Autosave target — the browser never touches the DB; it calls this action.
+export async function saveSitemap(id: string, data: SitemapDoc) {
+  await requireUserId();
+  await db.update(sitemaps).set({ data }).where(eq(sitemaps.id, id));
+}
+
+export async function doSignOut() {
+  await signOut({ redirectTo: "/login" });
 }
