@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { auth, signOut } from "@/auth";
 import { db } from "@/lib/db";
-import { sitemaps } from "@/lib/db/schema";
+import { sitemaps, sitemapShares } from "@/lib/db/schema";
+import type { ShareLink, SharePermission } from "@/lib/share";
 import type { SitemapDoc } from "@/lib/tree";
 
 function homeSeed(): SitemapDoc {
@@ -77,4 +78,58 @@ export async function saveSitemap(id: string, data: SitemapDoc) {
 
 export async function doSignOut() {
   await signOut({ redirectTo: "/login" });
+}
+
+// ---------------------------------------------------------------------------
+// Share links (staff)
+// ---------------------------------------------------------------------------
+export async function listShares(sitemapId: string): Promise<ShareLink[]> {
+  await requireUserId();
+  const rows = await db
+    .select({
+      id: sitemapShares.id,
+      token: sitemapShares.token,
+      permission: sitemapShares.permission,
+      revoked: sitemapShares.revoked,
+      createdAt: sitemapShares.createdAt,
+    })
+    .from(sitemapShares)
+    .where(eq(sitemapShares.sitemapId, sitemapId))
+    .orderBy(desc(sitemapShares.createdAt));
+  return rows.map((r) => ({
+    id: r.id,
+    token: r.token,
+    permission: r.permission as SharePermission,
+    revoked: r.revoked,
+    createdAt: r.createdAt.toISOString(),
+  }));
+}
+
+export async function createShare(
+  sitemapId: string,
+  permission: SharePermission,
+): Promise<ShareLink> {
+  const userId = await requireUserId();
+  const [row] = await db
+    .insert(sitemapShares)
+    .values({ sitemapId, permission, createdBy: userId })
+    .returning({
+      id: sitemapShares.id,
+      token: sitemapShares.token,
+      permission: sitemapShares.permission,
+      revoked: sitemapShares.revoked,
+      createdAt: sitemapShares.createdAt,
+    });
+  return {
+    id: row.id,
+    token: row.token,
+    permission: row.permission as SharePermission,
+    revoked: row.revoked,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+export async function revokeShare(shareId: string) {
+  await requireUserId();
+  await db.update(sitemapShares).set({ revoked: true }).where(eq(sitemapShares.id, shareId));
 }

@@ -8,6 +8,7 @@ import { ArrowLeft, Check, Loader2, Redo2, TriangleAlert, Undo2 } from "lucide-r
 import { saveSitemap } from "@/app/actions";
 import type { SitemapDoc } from "@/lib/tree";
 import { useSitemapStore } from "@/store/useSitemapStore";
+import { ShareDialog } from "./ShareDialog";
 
 const SitemapEditor = dynamic(
   () => import("./SitemapEditor").then((m) => m.SitemapEditor),
@@ -78,7 +79,15 @@ function SaveIndicator({ status }: { status: SaveStatus }) {
   return null;
 }
 
-function TopBar({ name, status }: { name: string; status: SaveStatus }) {
+function TopBar({
+  name,
+  status,
+  sitemapId,
+}: {
+  name: string;
+  status: SaveStatus;
+  sitemapId: string;
+}) {
   const canUndo = useStore(useSitemapStore.temporal, (s) => s.pastStates.length > 0);
   const canRedo = useStore(useSitemapStore.temporal, (s) => s.futureStates.length > 0);
 
@@ -97,6 +106,9 @@ function TopBar({ name, status }: { name: string; status: SaveStatus }) {
       </div>
 
       <div className="flex-1" />
+
+      <ShareDialog sitemapId={sitemapId} />
+      <span className="mx-1 h-[22px] w-px bg-[#2A2D37]" />
 
       <BarButton
         label="Undo (Ctrl+Z)"
@@ -152,7 +164,7 @@ export function EditorShell({
   const status = useAutosave(sitemapId, initialDoc);
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden">
-      <TopBar name={name} status={status} />
+      <TopBar name={name} status={status} sitemapId={sitemapId} />
       <SitemapEditor />
     </div>
   );
