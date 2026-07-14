@@ -34,6 +34,8 @@ interface SitemapState {
   toggleCollapse: (id: string) => void;
   createRoot: () => void;
   reset: () => void;
+  // Replace the whole document (e.g. loading a saved sitemap from Supabase).
+  load: (doc: SitemapDoc) => void;
 
   // selection & inline editing
   select: (id: string | null) => void;
@@ -44,7 +46,7 @@ interface SitemapState {
 export const useSitemapStore = create<SitemapState>()(
   temporal(
     (set) => ({
-  doc: tree.seedDemo(newId),
+  doc: tree.emptyDoc(),
   selectedId: null,
   editing: null,
 
@@ -84,6 +86,8 @@ export const useSitemapStore = create<SitemapState>()(
     }),
 
   reset: () => set({ doc: tree.emptyDoc(), selectedId: null, editing: null }),
+
+  load: (doc) => set({ doc, selectedId: null, editing: null }),
 
   select: (id) => set({ selectedId: id }),
   startEditing: (id, field) => set({ selectedId: id, editing: { id, field } }),

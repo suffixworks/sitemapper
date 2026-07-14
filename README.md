@@ -34,9 +34,9 @@ pnpm deploy    # opennextjs-cloudflare build + wrangler deploy
 Built phase by phase (see `docs/BRIEF.md`):
 
 - [x] **Phase 0** — Scaffold
-- [ ] Phase 1 — Core canvas (local)
-- [ ] Phase 2 — UX polish
-- [ ] Phase 3 — Supabase persistence + staff auth
+- [x] Phase 1 — Core canvas (local)
+- [x] Phase 2 — UX polish
+- [x] Phase 3 — Supabase persistence + staff auth
 - [ ] Phase 4 — Share links
 - [ ] Phase 5 — Comments
 - [ ] Phase 6 — Export & extras
