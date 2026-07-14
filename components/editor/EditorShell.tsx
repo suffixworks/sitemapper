@@ -1,13 +1,30 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useStore } from "zustand";
-import { ArrowLeft, Check, Loader2, Redo2, TriangleAlert, Undo2 } from "lucide-react";
-import { saveSitemap } from "@/app/actions";
+import {
+  ArrowLeft,
+  Check,
+  Loader2,
+  MessageSquare,
+  Redo2,
+  TriangleAlert,
+  Undo2,
+} from "lucide-react";
+import {
+  addStaffComment,
+  listComments,
+  resolveComment,
+  saveSitemap,
+} from "@/app/actions";
 import type { SitemapDoc } from "@/lib/tree";
 import { useSitemapStore } from "@/store/useSitemapStore";
+import {
+  CommentsPanel,
+  type CommentsTransport,
+} from "@/components/comments/CommentsPanel";
 import { ShareDialog } from "./ShareDialog";
 
 const SitemapEditor = dynamic(
@@ -83,10 +100,14 @@ function TopBar({
   name,
   status,
   sitemapId,
+  onToggleComments,
+  commentsOpen,
 }: {
   name: string;
   status: SaveStatus;
   sitemapId: string;
+  onToggleComments: () => void;
+  commentsOpen: boolean;
 }) {
   const canUndo = useStore(useSitemapStore.temporal, (s) => s.pastStates.length > 0);
   const canRedo = useStore(useSitemapStore.temporal, (s) => s.futureStates.length > 0);
@@ -107,6 +128,17 @@ function TopBar({
 
       <div className="flex-1" />
 
+      <button
+        onClick={onToggleComments}
+        title="Comments"
+        aria-label="Comments"
+        className={`flex h-8 items-center gap-1.5 rounded-[7px] px-2.5 text-[13px] font-medium transition-colors hover:bg-[#23262F] hover:text-white ${
+          commentsOpen ? "bg-[#23262F] text-white" : "text-[#C9CDD8]"
+        }`}
+      >
+        <MessageSquare className="h-[15px] w-[15px]" />
+        <span className="hidden sm:inline">Comments</span>
+      </button>
       <ShareDialog sitemapId={sitemapId} />
       <span className="mx-1 h-[22px] w-px bg-[#2A2D37]" />
 
@@ -162,10 +194,37 @@ export function EditorShell({
   initialDoc: SitemapDoc;
 }) {
   const status = useAutosave(sitemapId, initialDoc);
+  const doc = useSitemapStore((s) => s.doc);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+
+  const transport: CommentsTransport = useMemo(
+    () => ({
+      role: "staff",
+      list: () => listComments(sitemapId),
+      add: (i) => addStaffComment(sitemapId, { nodeId: i.nodeId, parentId: i.parentId, body: i.body }),
+      resolve: (id, r) => resolveComment(id, r),
+    }),
+    [sitemapId],
+  );
+
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden">
-      <TopBar name={name} status={status} sitemapId={sitemapId} />
-      <SitemapEditor />
+      <TopBar
+        name={name}
+        status={status}
+        sitemapId={sitemapId}
+        onToggleComments={() => setCommentsOpen((o) => !o)}
+        commentsOpen={commentsOpen}
+      />
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <SitemapEditor />
+        <CommentsPanel
+          open={commentsOpen}
+          onClose={() => setCommentsOpen(false)}
+          doc={doc}
+          transport={transport}
+        />
+      </div>
     </div>
   );
 }

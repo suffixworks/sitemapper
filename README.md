@@ -47,6 +47,6 @@ Built phase by phase (see `docs/BRIEF.md`):
 - [x] Phase 1 — Core canvas (local)
 - [x] Phase 2 — UX polish
 - [x] Phase 3 — Neon persistence + staff auth (Auth.js)
-- [ ] Phase 4 — Share links
-- [ ] Phase 5 — Comments
+- [x] Phase 4 — Share links
+- [x] Phase 5 — Comments
 - [ ] Phase 6 — Export & extras

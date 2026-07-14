@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { auth, signOut } from "@/auth";
 import { db } from "@/lib/db";
-import { sitemaps, sitemapShares } from "@/lib/db/schema";
+import { comments, sitemaps, sitemapShares } from "@/lib/db/schema";
+import { isValidBody, type CommentRow } from "@/lib/comments";
 import type { ShareLink, SharePermission } from "@/lib/share";
 import type { SitemapDoc } from "@/lib/tree";
 
@@ -132,4 +133,68 @@ export async function createShare(
 export async function revokeShare(shareId: string) {
   await requireUserId();
   await db.update(sitemapShares).set({ revoked: true }).where(eq(sitemapShares.id, shareId));
+}
+
+// ---------------------------------------------------------------------------
+// Comments (staff — guests use /api/share/[token]/comments)
+// ---------------------------------------------------------------------------
+function toCommentRow(c: typeof comments.$inferSelect): CommentRow {
+  return {
+    id: c.id,
+    nodeId: c.nodeId,
+    parentId: c.parentId,
+    body: c.body,
+    authorName: c.authorName,
+    authorEmail: c.authorEmail,
+    isStaff: c.isStaff,
+    resolved: c.resolved,
+    createdAt: c.createdAt.toISOString(),
+  };
+}
+
+export async function listComments(sitemapId: string): Promise<CommentRow[]> {
+  await requireUserId();
+  const rows = await db
+    .select()
+    .from(comments)
+    .where(eq(comments.sitemapId, sitemapId))
+    .orderBy(asc(comments.createdAt));
+  return rows.map(toCommentRow);
+}
+
+export async function addStaffComment(
+  sitemapId: string,
+  input: { nodeId: string | null; parentId: string | null; body: string },
+): Promise<CommentRow> {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  if (!isValidBody(input.body)) throw new Error("Comment must be 1–4000 characters");
+
+  const [row] = await db
+    .insert(comments)
+    .values({
+      sitemapId,
+      nodeId: input.nodeId,
+      parentId: input.parentId,
+      body: input.body.trim(),
+      authorId: session.user.id,
+      authorName: session.user.name ?? session.user.email ?? "Staff",
+      authorEmail: session.user.email ?? null,
+      isStaff: true,
+    })
+    .returning();
+  return toCommentRow(row);
+}
+
+export async function resolveComment(id: string, resolved: boolean) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  await db
+    .update(comments)
+    .set({
+      resolved,
+      resolvedBy: resolved ? session.user.id : null,
+      resolvedAt: resolved ? new Date() : null,
+    })
+    .where(eq(comments.id, id));
 }

@@ -30,5 +30,12 @@ export default async function GuestSharePage({
     );
   }
 
-  return <GuestView name={share.name} doc={share.data} permission={share.permission} />;
+  return (
+    <GuestView
+      token={token}
+      name={share.name}
+      doc={share.data}
+      permission={share.permission}
+    />
+  );
 }
