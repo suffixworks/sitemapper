@@ -2,8 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { CornerDownRight, Plus, Rows3, Trash2 } from "lucide-react";
-import { colorForNode } from "@/lib/colors";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsDownUp,
+  CornerDownRight,
+  Palette,
+  Plus,
+  Rows3,
+  Trash2,
+} from "lucide-react";
+import { colorForNode, SWATCHES } from "@/lib/colors";
 import { NODE_W } from "@/lib/layout";
 import type { SitemapRFNode } from "@/lib/layout";
 import { useSitemapStore } from "@/store/useSitemapStore";
@@ -49,7 +59,7 @@ function InlineEdit({
 }
 
 export function SitemapNodeCard({ id, data }: NodeProps<SitemapRFNode>) {
-  const { node, depth } = data;
+  const { node, depth, descendants, hasChildren, collapsed } = data;
   const selected = useSitemapStore((s) => s.selectedId === id);
   const editing = useSitemapStore((s) => (s.editing?.id === id ? s.editing : null));
 
@@ -59,7 +69,15 @@ export function SitemapNodeCard({ id, data }: NodeProps<SitemapRFNode>) {
   const addChild = useSitemapStore((s) => s.addChild);
   const addSibling = useSitemapStore((s) => s.addSibling);
   const remove = useSitemapStore((s) => s.remove);
+  const reorder = useSitemapStore((s) => s.reorder);
+  const setColor = useSitemapStore((s) => s.setColor);
+  const toggleCollapse = useSitemapStore((s) => s.toggleCollapse);
   const startEditing = useSitemapStore((s) => s.startEditing);
+
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    if (!selected) setPaletteOpen(false);
+  }, [selected]);
 
   const accent = colorForNode(node.color, depth);
   const isRoot = node.parentId === null;
@@ -146,27 +164,87 @@ export function SitemapNodeCard({ id, data }: NodeProps<SitemapRFNode>) {
         className={`${reveal} absolute -top-[38px] left-1/2 -translate-x-1/2 items-center gap-px rounded-[9px] bg-[#14161C] p-[3px] shadow-[0_8px_30px_rgba(20,30,60,.16)]`}
         onPointerDown={stop}
       >
+        {!isRoot && (
+          <>
+            <ToolButton label="Move left" onClick={(e) => act(e, () => reorder(id, -1))}>
+              <ChevronLeft />
+            </ToolButton>
+            <ToolButton label="Move right" onClick={(e) => act(e, () => reorder(id, 1))}>
+              <ChevronRight />
+            </ToolButton>
+            <span className="mx-0.5 h-[18px] w-px bg-[#2A2D37]" />
+          </>
+        )}
         <ToolButton label="Add child" onClick={(e) => act(e, () => addChild(id))}>
           <CornerDownRight />
         </ToolButton>
         <ToolButton label="Add sibling" onClick={(e) => act(e, () => addSibling(id))}>
           <Rows3 />
         </ToolButton>
+        {hasChildren && (
+          <ToolButton
+            label={collapsed ? "Expand" : "Collapse"}
+            onClick={(e) => act(e, () => toggleCollapse(id))}
+          >
+            <ChevronsDownUp />
+          </ToolButton>
+        )}
         <span className="mx-0.5 h-[18px] w-px bg-[#2A2D37]" />
+        <ToolButton label="Color" onClick={(e) => act(e, () => setPaletteOpen((o) => !o))}>
+          <Palette />
+        </ToolButton>
         <ToolButton label="Delete" danger onClick={(e) => act(e, () => remove(id))}>
           <Trash2 />
         </ToolButton>
       </div>
 
-      {/* add-child FAB */}
-      <button
-        aria-label="Add child page"
-        onPointerDown={stop}
-        onClick={(e) => act(e, () => addChild(id))}
-        className={`${reveal} absolute -bottom-[13px] left-1/2 h-[26px] w-[26px] -translate-x-1/2 items-center justify-center rounded-full border-2 border-white bg-[#4C46E5] text-white shadow-[0_1px_2px_rgba(20,30,60,.06),0_6px_18px_rgba(20,30,60,.08)] transition-transform hover:scale-110 hover:bg-[#5b55f0]`}
-      >
-        <Plus className="h-[14px] w-[14px]" strokeWidth={2.4} />
-      </button>
+      {/* color palette popover */}
+      {paletteOpen && (
+        <div
+          className="absolute -top-[74px] left-1/2 z-10 flex -translate-x-1/2 gap-1.5 rounded-[9px] bg-[#14161C] p-[7px] shadow-[0_8px_30px_rgba(20,30,60,.16)]"
+          onPointerDown={stop}
+        >
+          {SWATCHES.map((c) => (
+            <button
+              key={c}
+              aria-label={`Set color ${c}`}
+              onClick={(e) =>
+                act(e, () => {
+                  setColor(id, c);
+                  setPaletteOpen(false);
+                })
+              }
+              className="h-5 w-5 rounded-full border-2 transition-transform hover:scale-110"
+              style={{ background: c, borderColor: node.color === c ? "#fff" : "transparent" }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* collapsed: persistent hidden-count pill (click to expand) */}
+      {hasChildren && collapsed && (
+        <button
+          onPointerDown={stop}
+          onClick={(e) => act(e, () => toggleCollapse(id))}
+          title={`Expand ${descendants} hidden`}
+          className="absolute -bottom-[11px] left-1/2 flex h-[22px] -translate-x-1/2 items-center gap-[3px] rounded-full border border-[#E1E6EF] bg-white px-1.5 text-[11px] font-semibold tabular-nums text-[#7A8496] shadow-[0_1px_2px_rgba(20,30,60,.06)] transition-colors hover:border-[#4C46E5] hover:text-[#4C46E5]"
+        >
+          <ChevronDown className="h-[11px] w-[11px]" strokeWidth={2.4} />
+          {descendants}
+        </button>
+      )}
+
+      {/* add-child FAB (hidden when collapsed) */}
+      {!collapsed && (
+        <button
+          aria-label="Add child page"
+          onPointerDown={stop}
+          onClick={(e) => act(e, () => addChild(id))}
+          className={`${reveal} absolute -bottom-[13px] left-1/2 h-[26px] w-[26px] -translate-x-1/2 items-center justify-center rounded-full border-2 border-white bg-[#4C46E5] text-white shadow-[0_1px_2px_rgba(20,30,60,.06),0_6px_18px_rgba(20,30,60,.08)] transition-transform hover:scale-110 hover:bg-[#5b55f0]`}
+        >
+          <Plus className="h-[14px] w-[14px]" strokeWidth={2.4} />
+        </button>
+      )}
     </div>
   );
 }

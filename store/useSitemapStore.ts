@@ -3,6 +3,7 @@
 // Undo/redo (zundo) is layered on in Phase 2.
 
 import { create } from "zustand";
+import { temporal } from "zundo";
 import * as tree from "@/lib/tree";
 import type { SitemapDoc } from "@/lib/tree";
 
@@ -40,7 +41,9 @@ interface SitemapState {
   stopEditing: () => void;
 }
 
-export const useSitemapStore = create<SitemapState>((set) => ({
+export const useSitemapStore = create<SitemapState>()(
+  temporal(
+    (set) => ({
   doc: tree.seedDemo(newId),
   selectedId: null,
   editing: null,
@@ -85,4 +88,12 @@ export const useSitemapStore = create<SitemapState>((set) => ({
   select: (id) => set({ selectedId: id }),
   startEditing: (id, field) => set({ selectedId: id, editing: { id, field } }),
   stopEditing: () => set({ editing: null }),
-}));
+    }),
+    {
+      // Only the tree is undoable; selection/editing aren't history entries.
+      partialize: (state) => ({ doc: state.doc }),
+      equality: (a, b) => a.doc === b.doc,
+      limit: 100,
+    },
+  ),
+);
