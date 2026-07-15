@@ -52,6 +52,7 @@ export function CommentsPanel({
   const [replyBody, setReplyBody] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [identityEditing, setIdentityEditing] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const isGuest = transport.role === "guest";
@@ -64,8 +65,12 @@ export function CommentsPanel({
       setLoading(false);
     });
     if (isGuest && typeof window !== "undefined") {
-      setName(localStorage.getItem("sm_guest_name") ?? "");
-      setEmail(localStorage.getItem("sm_guest_email") ?? "");
+      const savedName = localStorage.getItem("sm_guest_name") ?? "";
+      const savedEmail = localStorage.getItem("sm_guest_email") ?? "";
+      setName(savedName);
+      setEmail(savedEmail);
+      // Already introduced themselves before? skip the fields.
+      setIdentityEditing(!(savedName.trim() && savedEmail.includes("@")));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -96,6 +101,7 @@ export function CommentsPanel({
       localStorage.setItem("sm_guest_name", name.trim());
       localStorage.setItem("sm_guest_email", email.trim());
     }
+    setIdentityEditing(false); // introduced — don't ask again
     return true;
   }
 
@@ -264,22 +270,36 @@ export function CommentsPanel({
 
         {/* composer */}
         <div className="flex-none space-y-2 border-t border-[#E1E6EF] bg-[#FAFBFD] p-3">
-          {isGuest && (
-            <div className="flex gap-2">
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
-                className="min-w-0 flex-1 rounded-md border border-[#E1E6EF] px-2 py-1.5 text-[13px] outline-none focus:border-[#4C46E5]"
-              />
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email"
-                className="min-w-0 flex-1 rounded-md border border-[#E1E6EF] px-2 py-1.5 text-[13px] outline-none focus:border-[#4C46E5]"
-              />
-            </div>
-          )}
+          {isGuest &&
+            (identityEditing ? (
+              <div className="flex gap-2">
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                  className="min-w-0 flex-1 rounded-md border border-[#E1E6EF] px-2 py-1.5 text-[13px] outline-none focus:border-[#4C46E5]"
+                />
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email"
+                  className="min-w-0 flex-1 rounded-md border border-[#E1E6EF] px-2 py-1.5 text-[13px] outline-none focus:border-[#4C46E5]"
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-[12px] text-[#7A8496]">
+                <span>
+                  Commenting as{" "}
+                  <b className="font-semibold text-[#1B2130]">{name}</b>
+                </span>
+                <button
+                  onClick={() => setIdentityEditing(true)}
+                  className="font-medium text-[#4C46E5] hover:underline"
+                >
+                  Change
+                </button>
+              </div>
+            ))}
           <select
             value={targetNode}
             onChange={(e) => setTargetNode(e.target.value)}
