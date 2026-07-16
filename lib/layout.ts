@@ -5,8 +5,10 @@
 // never overlap. Actual measured heights (when passed in) make it exact.
 
 import { hierarchy, tree } from "d3-hierarchy";
-import type { Edge, Node } from "@xyflow/react";
+import { MarkerType, type Edge, type Node } from "@xyflow/react";
 import { type SitemapDoc, type SitemapNode, descendantCount } from "./tree";
+
+export const REF_COLOR = "#8460C0";
 
 export const NODE_W = 208;
 export const NODE_H = 74; // base card height (kind + title + slug + padding)
@@ -82,9 +84,13 @@ export function layout(
 
   const rfNodes: SitemapRFNode[] = [];
   const rfEdges: Edge[] = [];
+  const visible = new Set<string>();
+  const withRefs: SitemapNode[] = [];
 
   laid.each((d) => {
     const sn = d.data.node;
+    visible.add(sn.id);
+    if (sn.refs?.length) withRefs.push(sn);
     const h = heightOf(sn);
     rfNodes.push({
       id: sn.id,
@@ -108,12 +114,33 @@ export function layout(
       rfEdges.push({
         id: `${d.parent.data.id}->${sn.id}`,
         source: d.parent.data.id,
+        sourceHandle: "s",
         target: sn.id,
+        targetHandle: "t",
         type: "smoothstep",
         pathOptions: { borderRadius: 12 },
       } as Edge);
     }
   });
+
+  // Cross-links (dashed) from back-office cards up to referenced nodes.
+  for (const sn of withRefs) {
+    for (const targetId of sn.refs ?? []) {
+      if (!visible.has(targetId) || targetId === sn.id) continue;
+      rfEdges.push({
+        id: `ref-${sn.id}->${targetId}`,
+        source: sn.id,
+        sourceHandle: "rs",
+        target: targetId,
+        targetHandle: "rt",
+        type: "smoothstep",
+        pathOptions: { borderRadius: 12 },
+        style: { stroke: REF_COLOR, strokeWidth: 1.8, strokeDasharray: "5 4" },
+        markerEnd: { type: MarkerType.ArrowClosed, color: REF_COLOR, width: 16, height: 16 },
+        zIndex: 2,
+      } as Edge);
+    }
+  }
 
   return { rfNodes, rfEdges };
 }

@@ -22,9 +22,12 @@ const nodeTypes = { sitemap: SitemapNodeCard };
 export function SitemapEditor() {
   const doc = useSitemapStore((s) => s.doc);
   const selectedId = useSitemapStore((s) => s.selectedId);
+  const linkingId = useSitemapStore((s) => s.linkingId);
   const select = useSitemapStore((s) => s.select);
   const startEditing = useSitemapStore((s) => s.startEditing);
   const stopEditing = useSitemapStore((s) => s.stopEditing);
+  const stopLinking = useSitemapStore((s) => s.stopLinking);
+  const toggleRef = useSitemapStore((s) => s.toggleRef);
   const createRoot = useSitemapStore((s) => s.createRoot);
   const addChild = useSitemapStore((s) => s.addChild);
   const addSibling = useSitemapStore((s) => s.addSibling);
@@ -37,6 +40,8 @@ export function SitemapEditor() {
   const edges = useMemo(
     () =>
       baseEdges.map((e) => {
+        // Cross-link (ref) edges keep their own dashed style from layout().
+        if (e.id.startsWith("ref-")) return e;
         const hot = e.source === selectedId || e.target === selectedId;
         return {
           ...e,
@@ -47,8 +52,19 @@ export function SitemapEditor() {
     [baseEdges, selectedId],
   );
 
-  const onNodeClick: NodeMouseHandler = (_, node) => select(node.id);
-  const onNodeDoubleClick: NodeMouseHandler = (_, node) => startEditing(node.id, "title");
+  const onNodeClick: NodeMouseHandler = (_, node) => {
+    // In link mode: clicking a card toggles a cross-link from the linking node.
+    if (linkingId) {
+      if (node.id === linkingId) stopLinking();
+      else toggleRef(linkingId, node.id);
+      return;
+    }
+    select(node.id);
+  };
+  const onNodeDoubleClick: NodeMouseHandler = (_, node) => {
+    if (linkingId) return;
+    startEditing(node.id, "title");
+  };
 
   // Keyboard shortcuts (ignored while typing in an input).
   useEffect(() => {
@@ -94,11 +110,12 @@ export function SitemapEditor() {
         toast("Page deleted");
       } else if (e.key === "Escape") {
         select(null);
+        stopLinking();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [fitView, addChild, addSibling, remove, startEditing, select]);
+  }, [fitView, addChild, addSibling, remove, startEditing, select, stopLinking]);
 
   const hasRoot = !!doc.rootId;
 
@@ -120,6 +137,7 @@ export function SitemapEditor() {
         onPaneClick={() => {
           select(null);
           stopEditing();
+          stopLinking();
         }}
         minZoom={0.25}
         maxZoom={2.5}

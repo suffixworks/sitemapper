@@ -19,7 +19,13 @@ const nodeTypes = { sitemap: ReadOnlyNodeCard };
 function Inner({ doc }: { doc: SitemapDoc }) {
   const { nodes, onNodesChange, edges: baseEdges } = useLaidOutNodes(doc);
   const edges = useMemo(
-    () => baseEdges.map((e) => ({ ...e, style: { stroke: EDGE_COLOR, strokeWidth: 2 } })),
+    () =>
+      baseEdges.map((e) =>
+        // Cross-link (ref) edges keep their own dashed style from layout().
+        e.id.startsWith("ref-")
+          ? e
+          : { ...e, style: { stroke: EDGE_COLOR, strokeWidth: 2 } },
+      ),
     [baseEdges],
   );
 

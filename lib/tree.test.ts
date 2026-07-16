@@ -163,3 +163,51 @@ describe("toOutline", () => {
     expect(md).toContain("  - About `/about`");
   });
 });
+
+describe("addBackoffice", () => {
+  it("appends a distinct back-office card with an empty refs array", () => {
+    let doc = tree.createRoot("r");
+    doc = tree.addChild(doc, "r", "a");
+    doc = tree.addBackoffice(doc, "a", "bo");
+    const bo = doc.nodes.bo;
+    expect(bo.kind).toBe("backoffice");
+    expect(bo.parentId).toBe("a");
+    expect(bo.slug).toBe("/back-office");
+    expect(bo.refs).toEqual([]);
+    expect(doc.nodes.a.children).toContain("bo");
+  });
+  it("is a no-op for a missing parent", () => {
+    const doc = tree.createRoot("r");
+    expect(tree.addBackoffice(doc, "nope", "bo")).toBe(doc);
+  });
+});
+
+describe("toggleRef", () => {
+  it("adds then removes a cross-link, and ignores self/missing targets", () => {
+    let doc = tree.createRoot("r");
+    doc = tree.addChild(doc, "r", "a");
+    doc = tree.addBackoffice(doc, "a", "bo");
+    doc = tree.toggleRef(doc, "bo", "r");
+    expect(doc.nodes.bo.refs).toEqual(["r"]);
+    doc = tree.toggleRef(doc, "bo", "r"); // toggle off
+    expect(doc.nodes.bo.refs).toEqual([]);
+    expect(tree.toggleRef(doc, "bo", "bo")).toBe(doc); // self
+    expect(tree.toggleRef(doc, "bo", "ghost")).toBe(doc); // missing target
+  });
+});
+
+describe("removeSubtree ref cleanup", () => {
+  it("drops dangling cross-links when a referenced node is removed", () => {
+    let doc = tree.createRoot("r");
+    doc = tree.addChild(doc, "r", "a");
+    doc = tree.addChild(doc, "a", "a1");
+    doc = tree.addChild(doc, "r", "b");
+    doc = tree.addBackoffice(doc, "b", "bo");
+    doc = tree.toggleRef(doc, "bo", "a"); // link to a
+    doc = tree.toggleRef(doc, "bo", "a1"); // link to a's child
+    expect(doc.nodes.bo.refs).toEqual(["a", "a1"]);
+    doc = tree.removeSubtree(doc, "a"); // removes a + a1
+    expect(doc.nodes.a).toBeUndefined();
+    expect(doc.nodes.bo.refs).toEqual([]);
+  });
+});

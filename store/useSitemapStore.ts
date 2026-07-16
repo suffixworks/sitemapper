@@ -22,10 +22,16 @@ interface SitemapState {
   doc: SitemapDoc;
   selectedId: string | null;
   editing: Editing | null;
+  // When set, clicking a card toggles a cross-link from this (back-office) node.
+  linkingId: string | null;
 
   // structural mutations
   addChild: (parentId: string) => void;
   addSibling: (id: string) => void;
+  addBackoffice: (parentId: string) => void;
+  toggleRef: (sourceId: string, targetId: string) => void;
+  startLinking: (id: string) => void;
+  stopLinking: () => void;
   remove: (id: string) => void;
   rename: (id: string, title: string) => void;
   setSlug: (id: string, slug: string) => void;
@@ -50,6 +56,7 @@ export const useSitemapStore = create<SitemapState>()(
   doc: tree.emptyDoc(),
   selectedId: null,
   editing: null,
+  linkingId: null,
 
   addChild: (parentId) =>
     set((s) => {
@@ -63,11 +70,28 @@ export const useSitemapStore = create<SitemapState>()(
       return { doc: tree.addSibling(s.doc, targetId, id), selectedId: id, editing: { id, field: "title" } };
     }),
 
+  addBackoffice: (parentId) =>
+    set((s) => {
+      const id = newId();
+      return {
+        doc: tree.addBackoffice(s.doc, parentId, id),
+        selectedId: id,
+        editing: { id, field: "title" },
+      };
+    }),
+
+  toggleRef: (sourceId, targetId) =>
+    set((s) => ({ doc: tree.toggleRef(s.doc, sourceId, targetId) })),
+
+  startLinking: (id) => set({ linkingId: id, selectedId: id, editing: null }),
+  stopLinking: () => set({ linkingId: null }),
+
   remove: (id) =>
     set((s) => ({
       doc: tree.removeSubtree(s.doc, id),
       selectedId: s.selectedId === id ? null : s.selectedId,
       editing: s.editing?.id === id ? null : s.editing,
+      linkingId: s.linkingId === id ? null : s.linkingId,
     })),
 
   rename: (id, title) => set((s) => ({ doc: tree.rename(s.doc, id, title), editing: null })),
@@ -88,9 +112,9 @@ export const useSitemapStore = create<SitemapState>()(
       return { doc: tree.createRoot(id), selectedId: id, editing: { id, field: "title" } };
     }),
 
-  reset: () => set({ doc: tree.emptyDoc(), selectedId: null, editing: null }),
+  reset: () => set({ doc: tree.emptyDoc(), selectedId: null, editing: null, linkingId: null }),
 
-  load: (doc) => set({ doc, selectedId: null, editing: null }),
+  load: (doc) => set({ doc, selectedId: null, editing: null, linkingId: null }),
 
   select: (id) => set({ selectedId: id }),
   startEditing: (id, field) => set({ selectedId: id, editing: { id, field } }),

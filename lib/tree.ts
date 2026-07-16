@@ -13,6 +13,8 @@ export interface SitemapNode {
   color?: string | null;
   collapsed?: boolean;
   notes?: string | null; // free-text description shown on the card (wraps fully)
+  kind?: "page" | "backoffice"; // "backoffice" = a distinct card that can cross-link
+  refs?: string[]; // extra cross-link targets (dashed reference edges, e.g. up)
 }
 
 export interface SitemapDoc {
@@ -97,6 +99,48 @@ export function addChild(
   };
 }
 
+/** Append a new back-office card under `parentId` (a distinct node that cross-links). */
+export function addBackoffice(
+  doc: SitemapDoc,
+  parentId: string,
+  id: string,
+  title = "Back office",
+): SitemapDoc {
+  const parent = doc.nodes[parentId];
+  if (!parent) return doc;
+  const node: SitemapNode = {
+    id,
+    title,
+    slug: "/back-office",
+    parentId,
+    children: [],
+    color: null,
+    collapsed: false,
+    kind: "backoffice",
+    refs: [],
+  };
+  return {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [id]: node,
+      [parentId]: { ...parent, children: [...parent.children, id], collapsed: false },
+    },
+  };
+}
+
+/** Toggle a cross-link (reference edge) from `sourceId` to `targetId`. */
+export function toggleRef(doc: SitemapDoc, sourceId: string, targetId: string): SitemapDoc {
+  if (sourceId === targetId) return doc;
+  const src = doc.nodes[sourceId];
+  if (!src || !doc.nodes[targetId]) return doc;
+  const refs = src.refs ?? [];
+  const next = refs.includes(targetId)
+    ? refs.filter((r) => r !== targetId)
+    : [...refs, targetId];
+  return { ...doc, nodes: { ...doc.nodes, [sourceId]: { ...src, refs: next } } };
+}
+
 /** Insert a new sibling immediately after `siblingId`. Root falls back to addChild. */
 export function addSibling(
   doc: SitemapDoc,
@@ -129,8 +173,10 @@ export function removeSubtree(doc: SitemapDoc, id: string): SitemapDoc {
   if (!node.parentId) return emptyDoc();
 
   const nodes = { ...doc.nodes };
+  const removed = new Set<string>();
   const collect = (nid: string) => {
     for (const cid of nodes[nid]?.children ?? []) collect(cid);
+    removed.add(nid);
     delete nodes[nid];
   };
   collect(id);
@@ -140,6 +186,13 @@ export function removeSubtree(doc: SitemapDoc, id: string): SitemapDoc {
     ...parent,
     children: parent.children.filter((c) => c !== id),
   };
+  // Drop any cross-links pointing at a removed node.
+  for (const nid in nodes) {
+    const n = nodes[nid];
+    if (n.refs?.some((r) => removed.has(r))) {
+      nodes[nid] = { ...n, refs: n.refs.filter((r) => !removed.has(r)) };
+    }
+  }
   return { ...doc, nodes };
 }
 

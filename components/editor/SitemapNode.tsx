@@ -8,9 +8,11 @@ import {
   ChevronRight,
   ChevronsDownUp,
   CornerDownRight,
+  Link2,
   Palette,
   Plus,
   Rows3,
+  Server,
   Trash2,
 } from "lucide-react";
 import { colorForNode, SWATCHES } from "@/lib/colors";
@@ -106,6 +108,8 @@ export function SitemapNodeCard({ id, data }: NodeProps<SitemapRFNode>) {
   const { node, depth, descendants, hasChildren, collapsed } = data;
   const selected = useSitemapStore((s) => s.selectedId === id);
   const editing = useSitemapStore((s) => (s.editing?.id === id ? s.editing : null));
+  const isLinking = useSitemapStore((s) => s.linkingId === id);
+  const someoneLinking = useSitemapStore((s) => !!s.linkingId && s.linkingId !== id);
 
   const rename = useSitemapStore((s) => s.rename);
   const setSlug = useSitemapStore((s) => s.setSlug);
@@ -113,6 +117,9 @@ export function SitemapNodeCard({ id, data }: NodeProps<SitemapRFNode>) {
   const stopEditing = useSitemapStore((s) => s.stopEditing);
   const addChild = useSitemapStore((s) => s.addChild);
   const addSibling = useSitemapStore((s) => s.addSibling);
+  const addBackoffice = useSitemapStore((s) => s.addBackoffice);
+  const startLinking = useSitemapStore((s) => s.startLinking);
+  const stopLinking = useSitemapStore((s) => s.stopLinking);
   const remove = useSitemapStore((s) => s.remove);
   const reorder = useSitemapStore((s) => s.reorder);
   const setColor = useSitemapStore((s) => s.setColor);
@@ -124,7 +131,8 @@ export function SitemapNodeCard({ id, data }: NodeProps<SitemapRFNode>) {
     if (!selected) setPaletteOpen(false);
   }, [selected]);
 
-  const accent = colorForNode(node.color, depth);
+  const isBackoffice = node.kind === "backoffice";
+  const accent = isBackoffice ? "#5A6270" : colorForNode(node.color, depth);
   const isRoot = node.parentId === null;
   const reveal = selected ? "flex" : "hidden group-hover:flex";
 
@@ -136,13 +144,18 @@ export function SitemapNodeCard({ id, data }: NodeProps<SitemapRFNode>) {
 
   return (
     <div
-      className="group relative select-none rounded-[11px] border bg-white px-3 pb-3 pt-[11px] shadow-[0_1px_2px_rgba(20,30,60,.06),0_6px_18px_rgba(20,30,60,.08)] transition-shadow hover:shadow-[0_8px_30px_rgba(20,30,60,.16)]"
+      className={`group relative select-none rounded-[11px] border px-3 pb-3 pt-[11px] shadow-[0_1px_2px_rgba(20,30,60,.06),0_6px_18px_rgba(20,30,60,.08)] transition-shadow hover:shadow-[0_8px_30px_rgba(20,30,60,.16)] ${
+        isBackoffice ? "bg-[#F4F5F8]" : "bg-white"
+      } ${someoneLinking ? "cursor-pointer ring-1 ring-[#8460C0]/30" : ""}`}
       style={{
         width: NODE_W,
-        borderColor: selected ? "#4C46E5" : "#E1E6EF",
-        boxShadow: selected
-          ? "0 0 0 2px #EBEAFC, 0 8px 30px rgba(20,30,60,.16)"
-          : undefined,
+        borderColor: isLinking ? "#8460C0" : selected ? "#4C46E5" : "#E1E6EF",
+        borderStyle: isBackoffice ? "dashed" : "solid",
+        boxShadow: isLinking
+          ? "0 0 0 2px #E9E2FA, 0 8px 30px rgba(20,30,60,.16)"
+          : selected
+            ? "0 0 0 2px #EBEAFC, 0 8px 30px rgba(20,30,60,.16)"
+            : undefined,
       }}
     >
       {/* top color bar */}
@@ -151,25 +164,18 @@ export function SitemapNodeCard({ id, data }: NodeProps<SitemapRFNode>) {
         style={{ background: accent }}
       />
 
-      {/* invisible handles for edges */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        isConnectable={false}
-        className="!h-1 !w-1 !border-0 !bg-transparent !opacity-0"
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        isConnectable={false}
-        className="!h-1 !w-1 !border-0 !bg-transparent !opacity-0"
-      />
+      {/* invisible handles: tree (t/s) + cross-link (rs/rt) */}
+      <Handle id="t" type="target" position={Position.Top} isConnectable={false} className="!h-1 !w-1 !border-0 !bg-transparent !opacity-0" />
+      <Handle id="rs" type="source" position={Position.Top} isConnectable={false} className="!h-1 !w-1 !border-0 !bg-transparent !opacity-0" />
+      <Handle id="s" type="source" position={Position.Bottom} isConnectable={false} className="!h-1 !w-1 !border-0 !bg-transparent !opacity-0" />
+      <Handle id="rt" type="target" position={Position.Bottom} isConnectable={false} className="!h-1 !w-1 !border-0 !bg-transparent !opacity-0" />
 
       <div
-        className="text-[9.5px] font-semibold uppercase tracking-[0.08em]"
+        className="flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-[0.08em]"
         style={{ color: accent }}
       >
-        {isRoot ? "HOME" : "PAGE"}
+        {isBackoffice && <Server className="h-[11px] w-[11px]" />}
+        {isBackoffice ? "BACK OFFICE" : isRoot ? "HOME" : "PAGE"}
       </div>
 
       {editing?.field === "title" ? (
@@ -250,6 +256,21 @@ export function SitemapNodeCard({ id, data }: NodeProps<SitemapRFNode>) {
         <ToolButton label="Add sibling" onClick={(e) => act(e, () => addSibling(id))}>
           <Rows3 />
         </ToolButton>
+        <ToolButton
+          label="Add back office card"
+          onClick={(e) => act(e, () => addBackoffice(id))}
+        >
+          <Server />
+        </ToolButton>
+        {isBackoffice && (
+          <ToolButton
+            label={isLinking ? "Done linking" : "Link to pages"}
+            active={isLinking}
+            onClick={(e) => act(e, () => (isLinking ? stopLinking() : startLinking(id)))}
+          >
+            <Link2 />
+          </ToolButton>
+        )}
         {hasChildren && (
           <ToolButton
             label={collapsed ? "Expand" : "Collapse"}
@@ -322,11 +343,13 @@ function ToolButton({
   children,
   label,
   danger,
+  active,
   onClick,
 }: {
   children: React.ReactNode;
   label: string;
   danger?: boolean;
+  active?: boolean;
   onClick: (e: React.MouseEvent) => void;
 }) {
   return (
@@ -334,9 +357,13 @@ function ToolButton({
       title={label}
       aria-label={label}
       onClick={onClick}
-      className={`grid h-7 w-7 place-items-center rounded-md text-[#C9CDD8] transition-colors ${
-        danger ? "hover:bg-[#3a2426] hover:text-[#ff8a86]" : "hover:bg-[#2a2e39] hover:text-white"
-      } [&_svg]:h-[15px] [&_svg]:w-[15px]`}
+      className={`grid h-7 w-7 place-items-center rounded-md transition-colors [&_svg]:h-[15px] [&_svg]:w-[15px] ${
+        active
+          ? "bg-[#8460C0] text-white"
+          : danger
+            ? "text-[#C9CDD8] hover:bg-[#3a2426] hover:text-[#ff8a86]"
+            : "text-[#C9CDD8] hover:bg-[#2a2e39] hover:text-white"
+      }`}
     >
       {children}
     </button>
