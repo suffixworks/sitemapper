@@ -29,7 +29,9 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${plexMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans">
+      {/* suppressHydrationWarning: some browser extensions inject attributes
+          (e.g. data-demoway-*) onto <body> before hydration; harmless. */}
+      <body className="min-h-full flex flex-col font-sans" suppressHydrationWarning>
         {children}
         <Toaster richColors position="top-center" />
       </body>
