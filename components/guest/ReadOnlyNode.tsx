@@ -47,6 +47,11 @@ export function ReadOnlyNodeCard({ data }: NodeProps<SitemapRFNode>) {
       <div className="mt-[3px] overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[11px] text-[#7A8496]">
         {node.slug}
       </div>
+      {node.notes && (
+        <div className="mt-1.5 whitespace-pre-wrap break-words text-[12px] leading-[1.5] text-[#4A5468]">
+          {node.notes}
+        </div>
+      )}
     </div>
   );
 }

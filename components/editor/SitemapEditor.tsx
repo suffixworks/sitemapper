@@ -6,7 +6,6 @@ import {
   BackgroundVariant,
   Controls,
   ReactFlow,
-  useNodesState,
   useReactFlow,
   type NodeMouseHandler,
 } from "@xyflow/react";
@@ -14,9 +13,9 @@ import "@xyflow/react/dist/style.css";
 import { toast } from "sonner";
 import { Maximize, Network, Plus } from "lucide-react";
 import { EDGE_COLOR, EDGE_COLOR_HOT } from "@/lib/colors";
-import { layout, type SitemapRFNode } from "@/lib/layout";
 import { useSitemapStore } from "@/store/useSitemapStore";
 import { SitemapNodeCard } from "./SitemapNode";
+import { useLaidOutNodes } from "./useLaidOutNodes";
 
 const nodeTypes = { sitemap: SitemapNodeCard };
 
@@ -32,28 +31,12 @@ export function SitemapEditor() {
   const remove = useSitemapStore((s) => s.remove);
   const { fitView } = useReactFlow();
 
-  const base = useMemo(() => layout(doc), [doc]);
-
-  const [nodes, setNodes, onNodesChange] = useNodesState<SitemapRFNode>([]);
-
-  // Re-project on every tree change, but reconcile in place: keep existing node
-  // objects (and their measured sizes) so unchanged cards don't churn or remount.
-  // Wholesale replacement re-measures every node and disrupts a freshly-added
-  // node's inline-edit input.
-  useEffect(() => {
-    setNodes((prev) => {
-      const byId = new Map(prev.map((n) => [n.id, n]));
-      return base.rfNodes.map((n) => {
-        const old = byId.get(n.id);
-        return old ? { ...old, position: n.position, data: n.data } : n;
-      });
-    });
-  }, [base, setNodes]);
+  const { nodes, onNodesChange, edges: baseEdges } = useLaidOutNodes(doc);
 
   // Edge highlight follows the selection (cheap; no relayout).
   const edges = useMemo(
     () =>
-      base.rfEdges.map((e) => {
+      baseEdges.map((e) => {
         const hot = e.source === selectedId || e.target === selectedId;
         return {
           ...e,
@@ -61,7 +44,7 @@ export function SitemapEditor() {
           zIndex: hot ? 1 : 0,
         };
       }),
-    [base.rfEdges, selectedId],
+    [baseEdges, selectedId],
   );
 
   const onNodeClick: NodeMouseHandler = (_, node) => select(node.id);

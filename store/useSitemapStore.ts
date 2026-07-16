@@ -12,7 +12,7 @@ function newId(): string {
   return "n" + Math.random().toString(36).slice(2, 10);
 }
 
-export type EditField = "title" | "slug";
+export type EditField = "title" | "slug" | "notes";
 export interface Editing {
   id: string;
   field: EditField;
@@ -29,6 +29,7 @@ interface SitemapState {
   remove: (id: string) => void;
   rename: (id: string, title: string) => void;
   setSlug: (id: string, slug: string) => void;
+  setNotes: (id: string, notes: string) => void;
   reorder: (id: string, dir: -1 | 1) => void;
   setColor: (id: string, color: string) => void;
   toggleCollapse: (id: string) => void;
@@ -72,6 +73,8 @@ export const useSitemapStore = create<SitemapState>()(
   rename: (id, title) => set((s) => ({ doc: tree.rename(s.doc, id, title), editing: null })),
 
   setSlug: (id, slug) => set((s) => ({ doc: tree.setSlug(s.doc, id, slug), editing: null })),
+
+  setNotes: (id, notes) => set((s) => ({ doc: tree.setNotes(s.doc, id, notes), editing: null })),
 
   reorder: (id, dir) => set((s) => ({ doc: tree.reorder(s.doc, id, dir) })),
 

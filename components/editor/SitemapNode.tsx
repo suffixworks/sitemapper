@@ -58,6 +58,50 @@ function InlineEdit({
   );
 }
 
+function NotesEdit({
+  value,
+  onCommit,
+  onCancel,
+}: {
+  value: string;
+  onCommit: (v: string) => void;
+  onCancel: () => void;
+}) {
+  const [v, setV] = useState(value);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.focus();
+    el.select();
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+  return (
+    <textarea
+      ref={ref}
+      value={v}
+      rows={2}
+      onChange={(e) => {
+        setV(e.target.value);
+        e.target.style.height = "auto";
+        e.target.style.height = `${e.target.scrollHeight}px`;
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onCancel();
+        }
+        // Enter inserts a newline; blur (or clicking away) commits.
+      }}
+      onBlur={() => onCommit(v)}
+      placeholder="Add a description…"
+      className="mt-1.5 w-full resize-none overflow-hidden rounded-[5px] bg-[#F3F4FA] px-[5px] py-1 text-[12px] leading-[1.5] text-[#1B2130] outline-none"
+    />
+  );
+}
+
 export function SitemapNodeCard({ id, data }: NodeProps<SitemapRFNode>) {
   const { node, depth, descendants, hasChildren, collapsed } = data;
   const selected = useSitemapStore((s) => s.selectedId === id);
@@ -65,6 +109,7 @@ export function SitemapNodeCard({ id, data }: NodeProps<SitemapRFNode>) {
 
   const rename = useSitemapStore((s) => s.rename);
   const setSlug = useSitemapStore((s) => s.setSlug);
+  const setNotes = useSitemapStore((s) => s.setNotes);
   const stopEditing = useSitemapStore((s) => s.stopEditing);
   const addChild = useSitemapStore((s) => s.addChild);
   const addSibling = useSitemapStore((s) => s.addSibling);
@@ -157,6 +202,30 @@ export function SitemapNodeCard({ id, data }: NodeProps<SitemapRFNode>) {
         >
           {node.slug}
         </div>
+      )}
+
+      {/* notes / description (wraps fully; card grows to fit) */}
+      {editing?.field === "notes" ? (
+        <NotesEdit
+          value={node.notes ?? ""}
+          onCommit={(v) => setNotes(id, v)}
+          onCancel={stopEditing}
+        />
+      ) : node.notes ? (
+        <div
+          className="mt-1.5 whitespace-pre-wrap break-words text-[12px] leading-[1.5] text-[#4A5468]"
+          onDoubleClick={(e) => act(e, () => startEditing(id, "notes"))}
+        >
+          {node.notes}
+        </div>
+      ) : (
+        <button
+          onPointerDown={stop}
+          onClick={(e) => act(e, () => startEditing(id, "notes"))}
+          className={`${reveal} mt-1.5 text-left text-[12px] italic text-[#AAB2C0] hover:text-[#4C46E5]`}
+        >
+          Add a description…
+        </button>
       )}
 
       {/* hover toolbar */}

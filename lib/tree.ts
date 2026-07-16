@@ -12,6 +12,7 @@ export interface SitemapNode {
   children: string[];
   color?: string | null;
   collapsed?: boolean;
+  notes?: string | null; // free-text description shown on the card (wraps fully)
 }
 
 export interface SitemapDoc {
@@ -187,6 +188,13 @@ export function setColor(doc: SitemapDoc, id: string, color: string): SitemapDoc
       [id]: { ...node, color: node.color === color ? null : color },
     },
   };
+}
+
+export function setNotes(doc: SitemapDoc, id: string, notes: string): SitemapDoc {
+  const node = doc.nodes[id];
+  if (!node) return doc;
+  const v = notes.trim();
+  return { ...doc, nodes: { ...doc.nodes, [id]: { ...node, notes: v || null } } };
 }
 
 export function toggleCollapse(doc: SitemapDoc, id: string): SitemapDoc {

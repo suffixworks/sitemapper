@@ -10,24 +10,25 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { EDGE_COLOR } from "@/lib/colors";
-import { layout } from "@/lib/layout";
 import type { SitemapDoc } from "@/lib/tree";
+import { useLaidOutNodes } from "@/components/editor/useLaidOutNodes";
 import { ReadOnlyNodeCard } from "./ReadOnlyNode";
 
 const nodeTypes = { sitemap: ReadOnlyNodeCard };
 
 function Inner({ doc }: { doc: SitemapDoc }) {
-  const { rfNodes, rfEdges } = useMemo(() => layout(doc), [doc]);
+  const { nodes, onNodesChange, edges: baseEdges } = useLaidOutNodes(doc);
   const edges = useMemo(
-    () => rfEdges.map((e) => ({ ...e, style: { stroke: EDGE_COLOR, strokeWidth: 2 } })),
-    [rfEdges],
+    () => baseEdges.map((e) => ({ ...e, style: { stroke: EDGE_COLOR, strokeWidth: 2 } })),
+    [baseEdges],
   );
 
   return (
     <div className="relative flex-1" style={{ background: "#EDF0F5" }}>
       <ReactFlow
-        nodes={rfNodes}
+        nodes={nodes}
         edges={edges}
+        onNodesChange={onNodesChange}
         nodeTypes={nodeTypes}
         nodesDraggable={false}
         nodesConnectable={false}
